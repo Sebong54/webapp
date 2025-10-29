@@ -1,11 +1,248 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>sebong's page</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>가상의 채팅 앱 (Single File)</title>
+  <style>
+    /* Reset & base */
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0f1724; --panel:#0b1320; --accent:#6ee7b7; --muted:#9aa5b1; --me:#0ea5a4; --other:#1f2937;
+      --radius:14px; --glass:rgba(255,255,255,0.03);
+      --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans KR', 'Helvetica Neue', Arial;
+    }
+
+    body{font-family:var(--font-sans);background:linear-gradient(180deg,#061124 0%, var(--bg) 100%);min-height:100vh;color:#e6eef6;display:flex;align-items:center;justify-content:center;padding:24px}
+
+    .app{width:100%;max-width:980px;height:700px;background:linear-gradient(180deg,rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:20px;box-shadow:0 8px 40px rgba(2,6,23,0.6);display:grid;grid-template-columns:330px 1fr;overflow:hidden}
+
+    /* Left column (contacts / sidebar) */
+    .sidebar{background:var(--panel);padding:18px;display:flex;flex-direction:column;gap:12px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#60a5fa);display:flex;align-items:center;justify-content:center;font-weight:700;color:#022;box-shadow:0 6px 18px rgba(0,0,0,0.4)}
+    .brand h1{font-size:16px;font-weight:700}
+    .search{margin-top:10px}
+    .search input{width:100%;padding:10px 12px;border-radius:10px;border:none;background:var(--glass);color:inherit}
+    .contact-list{margin-top:8px;overflow:auto;padding-right:6px}
+    .contact{display:flex;gap:10px;align-items:center;padding:10px;border-radius:10px;cursor:pointer}
+    .contact:hover{background:rgba(255,255,255,0.02)}
+    .avatar{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#f97316,#fb7185);display:flex;align-items:center;justify-content:center;font-weight:700}
+    .contact .meta{flex:1}
+    .contact .meta .name{font-weight:600}
+    .contact .meta .last{color:var(--muted);font-size:13px}
+
+    /* Main chat area */
+    .chat{display:flex;flex-direction:column;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);padding:18px}
+    .chat-header{display:flex;align-items:center;gap:12px;padding-bottom:8px;border-bottom:1px dashed rgba(255,255,255,0.02)}
+    .chat-header .title{font-weight:700}
+    .messages{flex:1;overflow:auto;padding:18px 6px;display:flex;flex-direction:column;gap:10px}
+
+    .msg{max-width:72%;padding:12px 14px;border-radius:14px;background:var(--glass);align-self:flex-start;position:relative}
+    .msg.me{background:linear-gradient(90deg,var(--me),#34d399);color:#022;align-self:flex-end;border-bottom-right-radius:4px}
+    .msg .time{font-size:11px;color:var(--muted);margin-top:6px;text-align:right}
+
+    .typing{font-style:italic;color:var(--muted);padding:6px 10px;border-radius:10px;background:rgba(255,255,255,0.02);display:inline-block}
+
+    .input-area{display:flex;gap:8px;padding:12px;border-top:1px dashed rgba(255,255,255,0.02);align-items:center}
+    .input{flex:1;display:flex;gap:8px;align-items:center;padding:8px;background:var(--panel);border-radius:12px}
+    .input textarea{width:100%;border:none;background:transparent;color:inherit;resize:none;padding:8px;font-size:15px}
+    .btn{background:var(--accent);border:none;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600;color:#012}
+
+    .small{font-size:12px;color:var(--muted)}
+
+    /* responsive */
+    @media (max-width:820px){.app{grid-template-columns:1fr;height:88vh}.sidebar{display:none}}
+  </style>
 </head>
 <body>
-    나의 첫 웹페이지
+  <div class="app" role="application">
+    <aside class="sidebar" aria-label="contacts">
+      <div class="brand">
+        <div class="logo">C</div>
+        <div>
+          <h1>Chat — 데모</h1>
+          <div class="small">가볍고 반응형 채팅 UI</div>
+        </div>
+      </div>
+
+      <div class="search">
+        <input id="search" placeholder="사람, 대화 검색" />
+      </div>
+
+      <div class="contact-list" id="contacts" role="list">
+        <!-- contacts rendered by JS -->
+      </div>
+    </aside>
+
+    <main class="chat" aria-label="chat window">
+      <div class="chat-header">
+        <div style="display:flex;gap:10px;align-items:center">
+          <div class="avatar" id="chatAvatar">A</div>
+          <div>
+            <div class="title" id="chatTitle">가상의 친구</div>
+            <div class="small" id="chatSubtitle">오프라인</div>
+          </div>
+        </div>
+        <div style="margin-left:auto" class="small">웹 데모</div>
+      </div>
+
+      <div class="messages" id="messages" role="log" aria-live="polite">
+        <!-- messages rendered by JS -->
+      </div>
+
+      <div class="input-area">
+        <div class="input">
+          <button id="emojiBtn" title="이모지">😊</button>
+          <textarea id="inputMsg" rows="1" placeholder="메시지를 입력하세요 — Enter: 전송, Shift+Enter: 줄바꿈"></textarea>
+          <button id="attachBtn" title="첨부">📎</button>
+        </div>
+        <button class="btn" id="sendBtn">전송</button>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    /* ---------- 간단한 데모 채팅 로직 (localStorage 사용) ---------- */
+    const CONTACTS = [
+      {id:1,name:'서연',last:'오늘 09:12',avatar:'서'},
+      {id:2,name:'민수',last:'어제',avatar:'민'},
+      {id:3,name:'가영',last:'지난주',avatar:'가'}
+    ];
+
+    // DOM
+    const contactsEl = document.getElementById('contacts');
+    const messagesEl = document.getElementById('messages');
+    const chatTitle = document.getElementById('chatTitle');
+    const chatSubtitle = document.getElementById('chatSubtitle');
+    const chatAvatar = document.getElementById('chatAvatar');
+    const inputMsg = document.getElementById('inputMsg');
+    const sendBtn = document.getElementById('sendBtn');
+    const search = document.getElementById('search');
+
+    let activeContact = CONTACTS[0];
+    let state = {messages:{}}; // messages keyed by contact id
+
+    function saveState(){localStorage.setItem('demoChatState',JSON.stringify(state))}
+    function loadState(){
+      const raw = localStorage.getItem('demoChatState');
+      if(raw) try{state=JSON.parse(raw)}catch(e){state={messages:{}}}
+    }
+
+    function formatTime(ts){
+      const d = new Date(ts);
+      return d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+    }
+
+    function renderContacts(filter=''){
+      contactsEl.innerHTML='';
+      CONTACTS.filter(c=>c.name.includes(filter)||c.last.includes(filter)).forEach(c=>{
+        const el = document.createElement('div'); el.className='contact'; el.tabIndex=0;
+        el.innerHTML = `
+          <div class="avatar">${c.avatar}</div>
+          <div class="meta">
+            <div class="name">${c.name}</div>
+            <div class="last">${c.last}</div>
+          </div>`;
+        el.onclick = ()=>{ setActive(c.id) };
+        contactsEl.appendChild(el);
+      })
+    }
+
+    function ensureThread(id){ if(!state.messages[id]) state.messages[id]=[] }
+
+    function renderMessages(){
+      ensureThread(activeContact.id);
+      messagesEl.innerHTML='';
+      const thread = state.messages[activeContact.id];
+      thread.forEach(m=>{
+        const el = document.createElement('div'); el.className='msg';
+        if(m.from === 'me') el.classList.add('me');
+        el.innerHTML = `<div class="text">${escapeHtml(m.text)}</div><div class="time">${formatTime(m.ts)}</div>`;
+        messagesEl.appendChild(el);
+      });
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function setActive(id){
+      activeContact = CONTACTS.find(c=>c.id===id);
+      chatTitle.textContent = activeContact.name;
+      chatSubtitle.textContent = '온라인';
+      chatAvatar.textContent = activeContact.avatar;
+      renderMessages();
+    }
+
+    function sendMessage(text){
+      if(!text.trim()) return;
+      ensureThread(activeContact.id);
+      const msg = {from:'me',text:text,ts:Date.now()};
+      state.messages[activeContact.id].push(msg);
+      saveState(); renderMessages(); inputMsg.value='';
+
+      // fake bot reply after a short delay
+      showTyping();
+      setTimeout(()=>{
+        hideTyping();
+        const reply = generateReply(text);
+        state.messages[activeContact.id].push({from:'other',text:reply,ts:Date.now()});
+        saveState(); renderMessages();
+      }, 700 + Math.random()*1100);
+    }
+
+    function generateReply(userText){
+      const lowers = userText.toLowerCase();
+      if(lowers.includes('안녕')||lowers.includes('hello')) return '안녕하세요! 무엇을 도와드릴까요?';
+      if(lowers.includes('ㅋㅋ')||lowers.includes('ㅎㅎ')) return '웃기네요 😂';
+      return '좋아요 — 메시지: "'+truncate(userText,80)+'"';
+    }
+
+    // typing indicator
+    let typingEl=null;
+    function showTyping(){
+      if(typingEl) return;
+      typingEl = document.createElement('div'); typingEl.className='typing'; typingEl.textContent='상대방이 타이핑 중...';
+      messagesEl.appendChild(typingEl);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+    function hideTyping(){ if(typingEl){typingEl.remove(); typingEl=null} }
+
+    // helpers
+    function escapeHtml(str){ return (''+str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+    function truncate(s,n){ return s.length>n? s.slice(0,n-1)+'…': s }
+
+    // events
+    sendBtn.addEventListener('click', ()=> sendMessage(inputMsg.value));
+    inputMsg.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(inputMsg.value) }
+    });
+
+    search.addEventListener('input',(e)=> renderContacts(e.target.value));
+
+    // attach demo (no upload)
+    document.getElementById('attachBtn').addEventListener('click', ()=>{
+      const sample = '[첨부파일] 사진.jpg';
+      sendMessage(sample);
+    });
+
+    // emoji quick insert
+    document.getElementById('emojiBtn').addEventListener('click', ()=>{
+      inputMsg.value += '😊'; inputMsg.focus();
+    });
+
+    // initialize demo data
+    loadState();
+    CONTACTS.forEach(c=>{ if(!state.messages[c.id]) state.messages[c.id] = [
+      {from:'other',text:`안녕, 나는 ${c.name} 이야. 데모 채팅이에요.`,ts:Date.now()-1000*60*60},
+      {from:'me',text:'테스트 메시지입니다.',ts:Date.now()-1000*60*30}
+    ]});
+
+    renderContacts(); setActive(activeContact.id);
+
+    // small accessibility: focus input on load
+    inputMsg.focus();
+
+    // clear localStorage helper (for development) - accessible via console
+    window.__clearDemo = ()=>{ localStorage.removeItem('demoChatState'); location.reload() }
+  </script>
 </body>
 </html>
